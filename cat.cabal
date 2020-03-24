@@ -1,0 +1,147 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: a2df0ca51da661d012ecc5ad426bc36f7216e2b5b60a10443cef3e569444749d
+
+name:           cat
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/cat#readme>
+homepage:       https://github.com/githubuser/cat#readme
+bug-reports:    https://github.com/githubuser/cat/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2020 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+    runtime.c
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/cat
+
+library
+  exposed-modules:
+      AST.Knot
+      AST.Knot.Class
+      AST.Knot.Class.KApplicative
+      AST.Knot.Class.KApply
+      AST.Knot.Class.KFoldable
+      AST.Knot.Class.KFunctor
+      AST.Knot.Class.KMonad
+      AST.Knot.Class.KNodes
+      AST.Knot.Class.KPointed
+      AST.Knot.Class.KTraversable
+      AST.Knot.Class.Orphans
+      AST.Knot.Class.Recursive
+      AST.Knot.Functor
+      AST.Knot.Pure
+      Cat.Backend
+      Cat.Common
+      Cat.LIR
+      Cat.Syntax
+      Cat.X64
+      MultiRec.Base
+      MultiRec.Constructor
+  other-modules:
+      Paths_cat
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , bytestring
+    , constraints
+    , containers
+    , contravariant
+    , data-default
+    , deepseq
+    , directory
+    , filepath
+    , free
+    , lens
+    , megaparsec
+    , mtl
+    , optics
+    , optparse-applicative
+    , parser-combinators
+    , prettyprinter
+    , prettyprinter-ansi-terminal
+    , recursion-schemes
+    , text
+    , text-short
+    , unordered-containers
+  default-language: Haskell2010
+
+executable cat
+  main-is: Main.hs
+  other-modules:
+      Paths_cat
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , bytestring
+    , cat
+    , constraints
+    , containers
+    , contravariant
+    , data-default
+    , deepseq
+    , directory
+    , filepath
+    , free
+    , lens
+    , megaparsec
+    , mtl
+    , optics
+    , optparse-applicative
+    , parser-combinators
+    , prettyprinter
+    , prettyprinter-ansi-terminal
+    , recursion-schemes
+    , text
+    , text-short
+    , unordered-containers
+  default-language: Haskell2010
+
+test-suite cat-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      X64Spec
+      Paths_cat
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , bytestring
+    , cat
+    , constraints
+    , containers
+    , contravariant
+    , data-default
+    , deepseq
+    , directory
+    , filepath
+    , free
+    , lens
+    , megaparsec
+    , mtl
+    , optics
+    , optparse-applicative
+    , parser-combinators
+    , prettyprinter
+    , prettyprinter-ansi-terminal
+    , recursion-schemes
+    , text
+    , text-short
+    , unordered-containers
+  default-language: Haskell2010
