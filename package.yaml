@@ -24,22 +24,22 @@ dependencies:
 - base >= 4.7 && < 5
 - bytestring
 - containers
-- contravariant
-- deepseq
-- directory
-- filepath
-- free
+# - contravariant
+# - deepseq
+# - directory
+# - filepath
+# - free
 - megaparsec
-- optics
+# - optics
 - optparse-applicative
 - parser-combinators
-- prettyprinter
-- prettyprinter-ansi-terminal
+# - prettyprinter
+# - prettyprinter-ansi-terminal
 - recursion-schemes
 - text
-- text-short
-- unordered-containers
-- constraints
+# - text-short
+# - unordered-containers
+# - constraints
 - mtl
 - lens
 - data-default
