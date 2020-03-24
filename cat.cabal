@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7dcba7d4e925b49883af7c02cf86a8b29f61c83a75fecfade3395a331d146122
+-- hash: 53465a4d1879025fe54745dae7c07b4aa107cd025cda7739c7e050a842b70b88
 
 name:           cat
 version:        0.1.0.0
@@ -28,20 +28,6 @@ source-repository head
 
 library
   exposed-modules:
-      AST.Knot
-      AST.Knot.Class
-      AST.Knot.Class.KApplicative
-      AST.Knot.Class.KApply
-      AST.Knot.Class.KFoldable
-      AST.Knot.Class.KFunctor
-      AST.Knot.Class.KMonad
-      AST.Knot.Class.KNodes
-      AST.Knot.Class.KPointed
-      AST.Knot.Class.KTraversable
-      AST.Knot.Class.Orphans
-      AST.Knot.Class.Recursive
-      AST.Knot.Functor
-      AST.Knot.Pure
       Cat.Backend
       Cat.Common
       Cat.LIR
@@ -61,6 +47,8 @@ library
     , mtl
     , optparse-applicative
     , parser-combinators
+    , prettyprinter
+    , prettyprinter-ansi-terminal
     , recursion-schemes
     , text
   default-language: Haskell2010
@@ -83,6 +71,8 @@ executable cat
     , mtl
     , optparse-applicative
     , parser-combinators
+    , prettyprinter
+    , prettyprinter-ansi-terminal
     , recursion-schemes
     , text
   default-language: Haskell2010
@@ -107,6 +97,8 @@ test-suite cat-test
     , mtl
     , optparse-applicative
     , parser-combinators
+    , prettyprinter
+    , prettyprinter-ansi-terminal
     , recursion-schemes
     , text
   default-language: Haskell2010

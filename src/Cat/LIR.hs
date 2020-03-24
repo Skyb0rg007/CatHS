@@ -19,7 +19,6 @@ import           Data.Map                  (Map)
 import           Data.Text                 (Text)
 import qualified Data.Text                 as Text
 import           Data.Text.Prettyprint.Doc
-import           Data.Text.Short           (ShortText)
 import           Data.Word                 (Word64)
 
 import Cat.Common
