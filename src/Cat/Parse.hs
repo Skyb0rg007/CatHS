@@ -214,9 +214,9 @@ parseLValue = do
         (Left <$> between (symbol "[") (symbol "]") parseExp)
         <|> 
         (Right <$> (symbol "." *> identifier))
-    let f :: Either Exp Text -> LValue -> LValue
-        f (Left s) = flip LValueSubscript s
-        f (Right s) = flip LValueFieldExp s
-    pure $ foldr f (LValueId x) subs
+    let f :: LValue -> Either Exp Text -> LValue
+        f lv (Left s) = LValueSubscript lv s
+        f lv (Right s) = LValueFieldExp lv s
+    pure $ foldl f (LValueId x) subs
 
 

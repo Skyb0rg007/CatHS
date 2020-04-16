@@ -91,12 +91,12 @@ prettyProg = vsep . fmap prettyToplevelDec
         parenIf False = id
         prettyFields :: [(Text, Ty)] -> Doc ExpAnn
         prettyFields [] = "{}"
-        prettyFields fs = encloseSep (op "{ ") (op " }") (op ", ") (fs <&> \(x, t) -> fld (pretty x) <+> op ":" <+> ty (pretty t))
+        prettyFields fs = align $ encloseSep (op "{ ") (op " }") (op ", ") (fs <&> \(x, t) -> fld (pretty x) <+> op ":" <+> ty (pretty t))
         prettyFields' :: [(Text, Exp)] -> Doc ExpAnn
         prettyFields' [] = "{}"
-        prettyFields' fs = encloseSep (op "{ ") (op " }") (op ", ") (fs <&> \(x, e) -> fld (pretty x) <+> op "=" <+> prettyExp 0 e)
+        prettyFields' fs = align $ encloseSep (op "{ ") (op " }") (op ", ") (fs <&> \(x, e) -> fld (pretty x) <+> op "=" <+> prettyExp 0 e)
         prettyArgs :: [(Text, Ty)] -> Doc ExpAnn
-        prettyArgs fs = encloseSep (op "(") (op ")") (op ", ") (fs <&> \(x, t) -> fld (pretty x) <+> op ":" <+> ty (pretty t))
+        prettyArgs fs = align $ encloseSep (op "(") (op ")") (op ", ") (fs <&> \(x, t) -> var (pretty x) <+> op ":" <+> ty (pretty t))
         prettyToplevelDec :: TopLevelDec -> Doc ExpAnn
         prettyToplevelDec = \case
             TyDecArray t elemTy ->
@@ -105,7 +105,7 @@ prettyProg = vsep . fmap prettyToplevelDec
             TyDecRecord t fields ->
                 kw "type" <+> ty (pretty t) <+> op "=" <+> prettyFields fields
             FunDec name retTy args (ExpSequence body) ->
-                kw "function" <+> fun (pretty name) <+> prettyArgs args <+> op "->" <+> ty (pretty retTy) <+> op "{" <> hardline
+                kw "function" <+> fun (pretty name) <+> group (prettyArgs args) <+> op "->" <+> ty (pretty retTy) <+> op "{" <> hardline
                 <> indent 4 (vsep $ prettyExp 0 <$> body) <> hardline
                 <> "}"
             FunDec name retTy args body -> prettyToplevelDec (FunDec name retTy args (ExpSequence [body]))
@@ -136,12 +136,12 @@ prettyProg = vsep . fmap prettyToplevelDec
             ExpIfThenElse e1 e2 e3 -> group $
                 flatAlt
                 (vsep [kw "if" <+> group (prettyExp 0 e1), indent 2 $ vsep [kw "then" <+> group (prettyExp 0 e2), kw "else" <+> group (prettyExp 0 e3)]])
-                (hsep [kw "if", group (prettyExp 0 e1), kw "then", group (prettyExp 0 e2), kw "else", group (prettyExp 0 e3)])
+                (align $ hsep [kw "if", group (prettyExp 0 e1), kw "then", group (prettyExp 0 e2), kw "else", group (prettyExp 0 e3)])
             ExpIfThen e1 e2 -> kw "if" <+> prettyExp 0 e1 <+> kw "then" <+> prettyExp 0 e2
             ExpWhile cond body -> kw "while" <+> prettyExp 0 cond <+> kw "do" <+> hardline <> indent 4 (prettyExp 0 body)
             ExpFor i begin end body -> kw "for" <+> var (pretty i) <+> ":=" <+> prettyExp 0 begin <+> kw "to" <+> prettyExp 0 end <+> kw "do" <+> hardline <> indent 4 (prettyExp 0 body)
-            ExpLet binds body -> vsep [kw "let", indent 2 (vsep (prettyDec <$> binds)), kw "in", indent 2 (prettyExp 0 body), kw "end"]
-            ExpCall f args -> fun (pretty f) <> encloseSep "(" ")" ", " (prettyExp 0 <$> args)
+            ExpLet binds body -> align $ vsep [kw "let", indent 2 (vsep (prettyDec <$> binds)), kw "in", indent 2 (prettyExp 0 body), kw "end"]
+            ExpCall f args -> fun (pretty f) <> align (encloseSep "(" ")" ", " (prettyExp 0 <$> args))
 
         prettyDec :: Dec -> Doc ExpAnn
         prettyDec (VarDec x t e) = kw "var" <+> var (pretty x) <+> op ":" <+> ty (pretty t) <+> ":=" <+> prettyExp 0 e
