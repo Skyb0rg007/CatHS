@@ -3,10 +3,15 @@
 DIR="$(dirname "$0")"
 BUILDDIR=$DIR/dist-newstyle/build/x86_64-linux/ghcjs-8.6.0.1/cat-site-0.1.0.0/x/site/build/site/site.jsexe
 
-cabal new-build site
+panic () {
+    echo >&2 "$@"
+    exit 1
+}
 
-git stash push || exit 1
-git checkout gh-pages || exit 1
+cabal new-build site || panic "Error compiling site"
+
+git stash push || panic "Error stashing current changes"
+git checkout gh-pages || { git stash pop; panic "Error checking out gh-pages"; }
 trap "git checkout -; git stash pop" EXIT
 
 rm -f all.min.js
