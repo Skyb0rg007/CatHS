@@ -17,7 +17,7 @@ trap "git checkout -; git stash pop" EXIT
 rm -f all.min.js
 cp "$BUILDDIR/all.js" . || exit 1
 cp "$BUILDDIR/all.js.externs" . || exit 1
-ccjs all.js --compilation_level=ADVANCED --jscomp_off=checkVars --externs=node --externs=all.js.externs --warning_level=QUIET > all.min.js
+ccjs all.js --compilation_level=ADVANCED --jscomp_off='*' --externs=all.js.externs > all.min.js
 rm -f all.js all.js.externs
 
 git add all.min.js
