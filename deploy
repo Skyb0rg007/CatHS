@@ -3,17 +3,19 @@
 DIR="$(dirname "$0")"
 BUILDDIR=$DIR/dist-newstyle/build/x86_64-linux/ghcjs-8.6.0.1/cat-site-0.1.0.0/x/site/build/site/site.jsexe
 
-git checkout gh-pages || exit 1
-trap "git checkout -" EXIT
-rm -f all.min.js
+cabal new-build site
 
+git stash push || exit 1
+git checkout gh-pages || exit 1
+trap "git checkout -; git stash apply" EXIT
+
+rm -f all.min.js
 cp "$BUILDDIR/all.js" . || exit 1
 cp "$BUILDDIR/all.js.externs" . || exit 1
-ccjs --js=all.js --compilation-level=ADVANCED_OPTIMIZATIONS --jscomp_off=checkVars --externs=node --externs=all.js.externs --js_output_file=all.min.js --warning_level=QUIET
+ccjs all.js --compilation-level=ADVANCED --jscomp_off=checkVars --externs=node --externs=all.js.externs --warning_level=QUIET > all.min.js
 rm -f all.js all.js.externs
 
 git add all.min.js
 git commit -m 'Deployed site'
 git push
-# git checkout -
 
