@@ -15,5 +15,6 @@ Reasons for doing so:
 * With GADTs and DataKinds, the 'Operator' type is parametrized by whether or
   not the operator is read-only (such as a constant). By annotating each
   Assembly operator individually, we get additional type safety that Rust does not afford
-* By using mtl, we can get rid of the 'GlobalState' arguments to functions,
+* By using `polysemy`, we can get rid of the 'GlobalState' arguments to functions,
   and instead implicitly thread the state throughout our programs
+
