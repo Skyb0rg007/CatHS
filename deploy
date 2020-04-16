@@ -1,9 +1,9 @@
 #!/bin/sh
 
 git checkout gh-pages
-mv ./dist-newstyle/build/x86_64-linux/ghcjs-8.6.0.1/cat-0.1.0.0/x/cat/build/cat/cat.jsexe .
+cp ./dist-newstyle/build/x86_64-linux/ghcjs-8.6.0.1/cat-0.1.0.0/x/cat/build/cat/cat.jsexe/* .
 # ccjs all.js --compilation-level=ADVANCED_OPTIMIZATIONS --jscomp_off=checkVars --externs=node --externs=all.js.externs > all.min.js
-git add ./*.js ./*.html
+git add index.html lib.js out.js rts.js runmain.js
 git commit -m 'Deployed site'
 git push
 git checkout master

@@ -4,4 +4,5 @@
 /dist/
 /dist-newstyle/
 /cabal.project.local
+/deploy
 
