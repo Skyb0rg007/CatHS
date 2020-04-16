@@ -1,6 +1,6 @@
 #!/bin/sh
 
-files="index.html lib.js out.js rts.js runmain.js"
+files="lib.js out.js rts.js"
 
 git checkout gh-pages || exit 1
 for file in $files; do
