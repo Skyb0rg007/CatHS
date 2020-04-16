@@ -15,6 +15,7 @@ import           Data.Foldable                  (traverse_)
 import           Data.Function                  ((&))
 import           Data.HashSet                   (HashSet)
 import qualified Data.HashSet                   as HashSet (fromList, member)
+import           Data.List                      (foldl')
 import           Data.Text                      (Text)
 import qualified Data.Text                      as Text (pack, unpack)
 import qualified Data.Text.Read                 as Text.Read (decimal)
@@ -215,6 +216,6 @@ parseLValue = do
         (flip LValueSubscript <$> between (symbol "[") (symbol "]") parseExp)
         <|> 
         (flip LValueFieldExp <$> (symbol "." *> identifier))
-    pure $ foldl (&) (LValueId x) subs 
+    pure $ foldl' (&) (LValueId x) subs 
 
 
