@@ -82,7 +82,10 @@ app :: forall m t .
     )
     => m ()
 app = do
-    el "p" $ text "Enter text and see how it parses!"
+    el "p" $ do
+        text "Enter text and see how it parses!"
+        el "br" (pure ())
+        el "b" $ text "NOTE: The pretty-printer removes all unnecessary parentheses"
     elAttr "div" ("id"=:"content") $ do
         inp <- elAttr "div" ("id"=:"left") codeInput
         postBuild <- getPostBuild
