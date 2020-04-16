@@ -1,12 +1,21 @@
+{-# LANGUAGE BlockArguments             #-}
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveFoldable             #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -20,13 +29,6 @@ module Cat.X64
     , Addr (..)
     -- * Type-level tag for whether an operand is writable
     , Access (..)
-    -- * Monad-transformer for compiling code
-    , CodeMT (..)
-    -- * Monad-transformer runner
-    , runCodeMT
-    , CodeM
-    , runCodeM
-    , MonadCode (..)
     -- * Supported conditionals
     , Condition (..)
     -- * Negate a Condition
@@ -47,37 +49,54 @@ module Cat.X64
     -- * Pseudo instructions
     , global
     , rawLabel
+    , newLabel
+    , db
     -- * High-Level Helpers
     , function
     , callFunction
-    -- * Compile a program
-    , compileProg
-    , def
     -- * Lenses
     , addrBaseReg, addrDisplacement, addrIndexReg
+    , def
+    -- * Effects
+    , X64
+    , runX64
+    , evalX64
     ) where
 
 -- Inspired by the X86-64bit package from Hackage
 
-import           Control.Lens.TH
-import           Control.Monad.State.Strict
-import           Control.Monad.Writer.Strict
-import           Data.Default
-import           Data.Foldable               (foldl')
-import           Data.Functor.Identity
-import           Data.Int                    (Int32, Int64)
-import           Data.Sequence               (Seq)
-import           Data.Text                   (Text)
-import qualified Data.Text                   as Text
-import           Data.Word                   (Word8)
-import           Prelude                     hiding (and, or)
+import           Control.Lens.TH   (makeLenses)
+import           Control.Monad     (forM_, void)
+import           Data.Default      (Default (def))
+import           Data.Int          (Int32, Int64)
+import           Data.Text         (Text)
+import qualified Data.Text         as Text
+import           Data.Word         (Word8)
+import           Fmt               ((+|), (+||), (|+), (||+))
+import qualified Fmt
+import qualified Fmt.Internal.Core as Fmt
+import           Polysemy
+import           Polysemy.State
+import           Polysemy.Writer
+import           Prelude           hiding (and, or)
+
+class ToX64 a where
+    toX64 :: a -> Text
+
+-- Formatting
+infixr 1 +%, %+
+(+%) :: Fmt.FromBuilder b => Fmt.Builder -> Fmt.Builder -> b
+(+%) = (Fmt.+|)
+(%+) :: (ToX64 a, Fmt.FromBuilder b) => a -> Fmt.Builder -> b
+(%+) = (Fmt.|+) . toX64
 
 data Label = Label !Int | LabelRaw !Text
-    deriving (Eq, Ord)
-instance Show Label where
-    show (Label i) = "lbl_" ++ show i
-    show (LabelRaw l) = Text.unpack l
+    deriving (Eq, Ord, Show)
+instance ToX64 Label where
+    toX64 (Label i) = "lbl_"+||i||+""
+    toX64 (LabelRaw l) = l
 
+-- | Types of usable registers
 data Register
     = Rax
     | Rbx
@@ -96,25 +115,55 @@ data Register
     | R15
     deriving (Show, Eq, Ord, Enum, Read)
 
+instance ToX64 Register where
+    toX64 = Text.cons '%' . Text.toLower . Text.pack . show
+
 tmpReg :: Register
 tmpReg = R15
 
+-- | Possible ways to address a location in memory
 data Addr = Addr
     { _addrBaseReg      :: Maybe Register
     , _addrDisplacement :: Maybe Int32
     , _addrIndexReg     :: Maybe (Word8, Register)
     } deriving (Show, Eq, Ord, Read)
 
+-- Useful for Lens
 instance Default Addr where
     def = Addr Nothing Nothing Nothing
+instance ToX64 Addr where
+    toX64 = \case
+        Addr Nothing Nothing Nothing ->
+            "0"
+        Addr Nothing (Just disp) Nothing ->
+            ""+||disp||+""
+        Addr (Just reg) Nothing Nothing ->
+            "("+%reg%+")"
+        Addr (Just reg) (Just disp) Nothing ->
+            ""+||disp||+"("+%reg%+")"
+        Addr (Just reg) (Just disp) (Just (scale, index)) ->
+            ""+||disp||+"("+%reg%+", "+||scale||+", "+%index%+")"
+        addr -> error $ "Ill-formed Addr: "+||addr||+""
 
+-- | Type-level type to determine if a value is writable
+-- Ie. register operands are read/write, literals are read-only
 data Access = R | RW
 
+-- | Types of operands to assembly instructions
 -- Use a GADT to prevent writing to immediate values
 data Operand :: Access -> * where
     ImmOp :: Immediate -> Operand 'R
     RegOp :: Register  -> Operand rw
     MemOp :: Addr      -> Operand rw
+
+instance ToX64 (Operand r) where
+    toX64 = \case
+        ImmOp (Immediate n) -> "$"+|| n ||+""
+        ImmOp (LabelRef l) -> ""+% l %+""
+        ImmOp (LabelMem l) -> "$"+% l %+""
+        ImmOp (ImmMem n) -> ""+|| n ||+""
+        RegOp reg -> ""+% reg %+""
+        MemOp addr -> ""+% addr %+""
 
 pattern LblOp :: Label -> Operand 'R
 pattern LblOp l = ImmOp (LabelRef l)
@@ -123,19 +172,15 @@ pattern IntOp n = ImmOp (Immediate n)
 pattern MemRegOp :: Register -> Operand rw
 pattern MemRegOp reg = MemOp (Addr (Just reg) Nothing Nothing)
 
-data Immediate = Immediate !Int64 | LabelRef !Label
+-- | Kinds of immediate operands
+data Immediate
+    = Immediate !Int64
+    | LabelRef !Label
+    | ImmMem !Int64
+    | LabelMem !Label
+    deriving (Show, Eq, Ord)
 
-data CodeLine where
-    Ret, Nop                         :: CodeLine
-    Add, Sub, Or, And, Mov, Cmp, Shl :: Operand r -> Operand 'RW -> CodeLine
-    Lea                              :: Operand 'RW -> Operand 'RW -> CodeLine
-    IMul, IDiv, Push, Call           :: Operand r -> CodeLine
-    Neg, Pop                         :: Operand 'RW -> CodeLine
-    Jmp                              :: Label -> CodeLine
-    J                                :: Condition -> Label -> CodeLine
-    Lbl                              :: Int -> CodeLine
-    Raw                              :: Text -> CodeLine
-
+-- | X64 conditionals (subset that we need)
 data Condition
     = E
     | NE
@@ -145,6 +190,10 @@ data Condition
     | LE
     deriving (Show, Eq, Ord, Enum, Read)
 
+instance ToX64 Condition where
+    toX64 = Text.toLower . Text.pack . show
+
+-- | Negate an X64 conditional
 notCond :: Condition -> Condition
 notCond E = NE
 notCond NE = E
@@ -153,175 +202,128 @@ notCond GE = L
 notCond L = GE
 notCond LE = G
 
-class MonadFix m => MonadCode m where
-    tellCodeLine :: CodeLine -> m ()
-    label :: m Label
+-- * Compilation effect
 
-newtype CodeMT m a = CodeMT
-    { unCodeMT :: StateT Int (WriterT (Seq CodeLine) m) a
-    } deriving newtype ( Functor
-                       , Applicative
-                       , Monad
-                       , MonadFix
-                       )
+-- | Polysemy effect needed to generate assembly
+data X64 (m :: * -> *) a where
+    NewLabel :: X64 m Label
+    Code :: Text -> X64 m ()
 
-instance MonadFix m => MonadCode (CodeMT m) where
-    tellCodeLine c = CodeMT $ tell $ pure c
-    label = CodeMT $ do
-        i <- get
-        put (i + 1)
-        tell $ pure $ Lbl i
-        pure $ Label i
+makeSem_ ''X64
 
+-- | Generate a new label, labeling the current position. Use MonadFix to
+-- reference a label declared later.
+newLabel :: forall r . Member X64 r => Sem r Label
 
-type CodeM = CodeMT Identity
+-- | Insert code into the final assembly. Should not be used directly
+code :: forall r . Member X64 r => Text -> Sem r ()
 
-runCodeMT :: Monad m => CodeMT m a -> m (a, Seq CodeLine)
-runCodeMT (CodeMT m) = runWriterT $ evalStateT m 0
+-- | Run the X64 compilation effect, returning a list of the compiled lines
+runX64
+    :: Sem (X64 ': r) a
+    -> Sem r ([Text], a)
+runX64 = runWriter @[Text] . evalState @Int 0 . reinterpret2 \case
+    NewLabel -> do
+        n <- get
+        put (n + 1)
+        tell [toX64 (Label n) <> ":"]
+        pure $ Label n
+    Code c -> do
+        tell [c]
 
-runCodeM :: CodeM a -> (a, Seq CodeLine)
-runCodeM = runIdentity . runCodeMT
+-- | Run the X64 compilation effect, returning the compiled assembly
+evalX64
+    :: Sem (X64 ': r) a
+    -> Sem r Text
+evalX64 = fmap (Text.unlines . fst) . runX64
 
--- Ops
+-- * Ops
+-- Note that binary operations handle multiple-memory calls by
+-- emitting two assembly instructions, using %r15 as the intermediary
 
-ret, nop :: MonadCode m => m ()
-ret = tellCodeLine Ret
-nop = tellCodeLine Nop
+ret, nop :: Member X64 r => Sem r ()
+ret = code "\tret"
+nop = code "\tnop"
 
 add, sub, or, and, mov, cmp, shl
-    :: MonadCode m => Operand r -> Operand 'RW -> m ()
+    :: Member X64 r => Operand r' -> Operand 'RW -> Sem r ()
 add (MemOp a) (MemOp b) = do
-    tellCodeLine $ Mov (MemOp a) (RegOp tmpReg)
-    tellCodeLine $ Add (RegOp tmpReg) (MemOp b)
-add a b = tellCodeLine $ Add a b
+    code $ "\tmovq "+% MemOp a %+", "+% RegOp tmpReg %+""
+    code $ "\tadd "+% RegOp tmpReg %+", "+% MemOp b %+""
+add a b =
+    code $ "\tadd "+% a %+", "+% b %+""
 sub (MemOp a) (MemOp b) = do
-    tellCodeLine $ Mov (MemOp a) (RegOp tmpReg)
-    tellCodeLine $ Sub (RegOp tmpReg) (MemOp b)
-sub a b = tellCodeLine $ Sub a b
+    code $ "\tmovq "+% MemOp a %+", "+% RegOp tmpReg %+""
+    code $ "\tsub "+% RegOp tmpReg %+", "+% MemOp b %+""
+sub a b =
+    code $ "\tsub "+% a %+", "+% b %+""
 or  (MemOp a) (MemOp b) = do
-    tellCodeLine $ Mov (MemOp a) (RegOp tmpReg)
-    tellCodeLine $ Or  (RegOp tmpReg) (MemOp b)
-or  a b = tellCodeLine $ Or  a b
+    code $ "\tmovq "+% MemOp a %+", "+% RegOp tmpReg %+""
+    code $ "\tor "+%  RegOp tmpReg %+", "+% MemOp b %+""
+or  a b =
+    code $ "\tor "+%  a %+", "+% b %+""
 and (MemOp a) (MemOp b) = do
-    tellCodeLine $ Mov (MemOp a) (RegOp tmpReg)
-    tellCodeLine $ And (RegOp tmpReg) (MemOp b)
-and a b = tellCodeLine $ And a b
+    code $ "\tmovq "+% MemOp a %+", "+% RegOp tmpReg %+""
+    code $ "\tand "+% RegOp tmpReg %+", "+% MemOp b %+""
+and a b =
+    code $ "\tand "+% a %+", "+% b %+""
 mov (MemOp a) (MemOp b) = do
-    tellCodeLine $ Mov (MemOp a) (RegOp tmpReg)
-    tellCodeLine $ Mov (RegOp tmpReg) (MemOp b)
-mov a b = tellCodeLine $ Mov a b
+    code $ "\tmovq "+% MemOp a %+", "+% RegOp tmpReg %+""
+    code $ "\tmovq "+% RegOp tmpReg %+", "+% MemOp b %+""
+mov a b =
+    code $ "\tmovq "+% a %+", "+% b %+""
 cmp (MemOp a) (MemOp b) = do
-    tellCodeLine $ Mov (MemOp a) (RegOp tmpReg)
-    tellCodeLine $ Cmp (RegOp tmpReg) (MemOp b)
-cmp a b = tellCodeLine $ Cmp a b
+    code $ "\tmovq "+% MemOp a %+", "+% RegOp tmpReg %+""
+    code $ "\tcmp "+% RegOp tmpReg %+", "+% MemOp b %+""
+cmp a b =
+    code $ "\tcmp "+% a %+", "+% b %+""
 shl (MemOp a) (MemOp b) = do
-    tellCodeLine $ Mov (MemOp a) (RegOp tmpReg)
-    tellCodeLine $ Shl (RegOp tmpReg) (MemOp b)
-shl a b = tellCodeLine $ Shl a b
+    code $ "\tmovq "+% MemOp a %+", "+% RegOp tmpReg %+""
+    code $ "\tshl "+% RegOp tmpReg %+", "+% MemOp b %+""
+shl a b =
+    code $ "\tshl "+% a %+", "+% b %+""
 
-lea :: MonadCode m => Operand 'RW -> Operand 'RW -> m ()
-lea a b = tellCodeLine $ Lea a b
+lea :: Member X64 r => Operand 'RW -> Operand 'RW -> Sem r ()
+lea a b = code $ "\tlea "+% a %+" "+% b %+""
 
-imul, idiv, push, call :: MonadCode m => Operand r -> m ()
-imul a = tellCodeLine $ IMul a
-idiv a = tellCodeLine $ IDiv a
-push a = tellCodeLine $ Push a
-call a = tellCodeLine $ Call a
+imul, idiv, push, call
+    :: Member X64 r => Operand r' -> Sem r ()
+imul a = code $ "\timulq "+% a %+""
+idiv a = code $ "\tidivq "+% a %+""
+push a = code $ "\tpushq "+% a %+""
+call a = code $ "\tcall "+% a %+""
 
-neg, pop :: MonadCode m => Operand 'RW -> m ()
-neg a = tellCodeLine $ Neg a
-pop a = tellCodeLine $ Pop a
+neg, pop :: Member X64 r => Operand 'RW -> Sem r ()
+neg a = code $ "\tneg "+% a %+""
+pop a = code $ "\tpop "+% a %+""
 
-jmp :: MonadCode m => Label -> m ()
-jmp l = tellCodeLine $ Jmp l
+jmp :: Member X64 r => Label -> Sem r ()
+jmp l = code $ "\tjmp "+% l %+""
 
-j :: MonadCode m => Condition -> Label -> m ()
-j c l = tellCodeLine $ J c l
+j :: Member X64 r => Condition -> Label -> Sem r ()
+j c l = code $ "\tj"+% c %+" "+% l %+""
 
-global :: MonadCode m => Label -> m ()
-global lbl = tellCodeLine $ Raw $ ".global " <> Text.pack (show lbl)
+global :: Member X64 r => Label -> Sem r ()
+global l = code $ ".global "+% l %+""
 
-rawLabel :: MonadCode m => Text -> m Label
-rawLabel t = do
-    let lbl = LabelRaw t
-    tellCodeLine $ Raw $ Text.pack (show lbl) <> ":"
+db :: Member X64 r => Text -> Sem r Label
+db str = do
+    code $ ".section .rodata"
+    lbl <- newLabel
+    code $ "\t.asciz \""+| str |+"\""
+    code $ ".section .text"
     pure lbl
 
--- * Compilation
-
-compileReg :: Register -> Text
-compileReg = \case
-    Rax -> "%rax"
-    Rbx -> "%rbx"
-    Rcx -> "%rcx"
-    Rdx -> "%rdx"
-    Rsp -> "%rsp"
-    Rsi -> "%rsi"
-    Rdi -> "%rdi"
-    R8  -> "%r8"
-    R9  -> "%r9"
-    R10 -> "%r10"
-    R11 -> "%r11"
-    R12 -> "%r12"
-    R13 -> "%r13"
-    R14 -> "%r14"
-    R15 -> "%r15"
-
-compileAddr :: Addr -> Text
-compileAddr = \case
-    Addr Nothing Nothing Nothing ->
-        "0"
-    Addr Nothing (Just disp) Nothing ->
-        Text.pack (show disp)
-    Addr (Just reg) Nothing Nothing ->
-        "(" <> compileReg reg <> ")"
-    Addr (Just reg) (Just disp) Nothing ->
-        Text.pack (show disp) <> "(" <> compileReg reg <> ")"
-    Addr (Just reg) (Just disp) (Just (scale, index)) ->
-        Text.pack (show disp) <>
-        "(" <> compileReg reg <>
-        ", " <> Text.pack (show scale) <>
-        ", " <> compileReg index <>
-        ")"
-    addr -> error $ "Ill-formed Addr: " <> show addr
-
-compileOp :: Operand r -> Text
-compileOp = \case
-    ImmOp (Immediate n) -> "$" <> Text.pack (show n)
-    ImmOp (LabelRef l) -> Text.pack (show l)
-    RegOp reg -> compileReg reg
-    MemOp addr -> compileAddr addr
-
-
-compileLine :: CodeLine -> Text
-compileLine = \case
-    Ret     -> "\tret"
-    Nop     -> "\tnop"
-    Add a b -> "\tadd "  <> compileOp a <> ", " <> compileOp b
-    Sub a b -> "\tsub "  <> compileOp a <> ", " <> compileOp b
-    Or  a b -> "\tor "   <> compileOp a <> ", " <> compileOp b
-    And a b -> "\tand "  <> compileOp a <> ", " <> compileOp b
-    Mov a b -> "\tmovq " <> compileOp a <> ", " <> compileOp b
-    Cmp a b -> "\tcmp "  <> compileOp a <> ", " <> compileOp b
-    Shl a b -> "\tshl "  <> compileOp a <> ", " <> compileOp b
-    Lea a b -> "\tlea "  <> compileOp a <> ", " <> compileOp b
-    IMul a  -> "\timulq " <> compileOp a
-    IDiv a  -> "\tidiv " <> compileOp a
-    Push a  -> "\tpush " <> compileOp a
-    Call a  -> "\tcall " <> compileOp a
-    Neg a   -> "\tneg "  <> compileOp a
-    Pop a   -> "\tpop "  <> compileOp a
-    Jmp l   -> "\tjmp " <> Text.pack (show l)
-    J c l   -> "\tj" <> Text.toLower (Text.pack (show c)) <> " " <> Text.pack (show l)
-    Lbl l   -> "lbl_" <> Text.pack (show l) <> ":"
-    Raw x   -> x
-
-compileProg :: Seq CodeLine -> Text
-compileProg = foldl' (\acc c -> acc <> "\n" <> compileLine c) ""
-
+rawLabel :: Member X64 r => Text -> Sem r Label
+rawLabel t = do
+    let lbl = LabelRaw t
+    code $ ""+% lbl %+":"
+    pure lbl
 
 -- * Helpers
+makeLenses ''Addr
 
+-- Register order
 abi :: [Register]
 abi =
     [ Rdi
@@ -334,38 +336,57 @@ abi =
 
 -- | Define a function with n arguments
 -- Parameters are allocated on the stack
-function :: MonadCode m => Int -> Int -> ([Operand 'RW] -> [Operand 'RW] -> Operand 'RW -> m a) -> m Label
+function
+    :: Member X64 r
+    => Int -- ^ Function arity
+    -> Int -- ^ Number of local variables
+    -> ([Operand 'RW] -> [Operand 'RW] -> Operand 'RW -> Sem r a)
+           -- ^ Function producing the X64 code
+    -> Sem r Label
+           -- ^ Return label to the function
 function arity numLocals f = do
-    lbl <- label
+    lbl <- newLabel
     let paramSize = arity * 8
         localSize = numLocals * 8
         retSize = 8
+    -- Make room for locals + parameters
     sub (IntOp (conv (paramSize + localSize + retSize))) (RegOp Rsp)
     let ops = flip fmap [0 .. arity - 1] $ \i ->
             MemOp (Addr (Just Rsp) (Just (conv (i * 8))) Nothing)
     let locals = flip fmap [arity .. arity + numLocals - 1] $ \i ->
             MemOp (Addr (Just Rsp) (Just (conv (i * 8))) Nothing)
     let ret' = MemOp (Addr (Just Rsp) (Just (conv ((arity + numLocals) * 8))) Nothing)
+    -- Move the parameters to where they were allocated
     forM_ (zip ops abi) $ \(op, reg) ->
         mov (RegOp reg) op
-    _ <- f ops locals ret'
+    -- Call the function
+    void $ f ops locals ret'
+    -- Move the return value to %rax
     mov ret' (RegOp Rax)
+    -- Restore the stack
     add (IntOp (conv (paramSize + localSize + retSize))) (RegOp Rsp)
+    -- Return
     ret
     pure lbl
+        where
+            -- Helper to convert between integer types
+            conv :: (Integral a, Num b) => a -> b
+            conv = fromInteger . toInteger
 
--- Call a function
-callFunction :: MonadCode m => Operand 'RW -> Label -> [Operand r] -> m ()
+-- | Call a function previously defined with 'function'
+callFunction
+    :: Member X64 r
+    => Operand 'RW  -- ^ Return location
+    -> Label        -- ^ Function label
+    -> [Operand r'] -- ^ Args
+    -> Sem r ()
 callFunction retOp lbl args = do
     forM_ (zip args abi) $ \(op, reg) ->
         mov op (RegOp reg)
     call (LblOp lbl)
     mov (RegOp Rax) retOp
 
-conv :: (Integral a, Num b) => a -> b
-conv = fromInteger . toInteger
 
-makeLenses ''Addr
 
 
 

@@ -4,48 +4,42 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6fa4a64d95fca55c736a0a24a471145506d4078bf45c71016d610d31d443daad
+-- hash: 509bafd948998410fdb18ff7daa8e49b39ab1ea6f75a1f4e276deb3e837e7ab1
 
-name:           cat
+name:           cat-site
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/cat#readme>
-homepage:       https://github.com/Skyb0rg007/cat#readme
-bug-reports:    https://github.com/Skyb0rg007/cat/issues
+homepage:       https://github.com/skyb0rg007/cat#readme
+bug-reports:    https://github.com/skyb0rg007/cat/issues
 author:         Skye Soss
 maintainer:     skye.soss@tufts.edu
 copyright:      2020 Skye Soss
 license:        BSD3
-license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
-    runtime.c
+    normalize.css
 
 source-repository head
   type: git
-  location: https://github.com/Skyb0rg007/cat
+  location: https://github.com/skyb0rg007/cat
 
 library
   exposed-modules:
-      Cat.Backend
-      Cat.CheckedSyntax
-      Cat.Common
-      Cat.LIR
-      Cat.Lower
-      Cat.Parse
-      Cat.Syntax
-      Cat.X64
+      Data.Text.Prettyprint.Doc.Render.HTML
   other-modules:
-      Paths_cat
+      Paths_cat_site
   hs-source-dirs:
       src
   build-depends:
       base >=4.7 && <5
     , bytestring
+    , cat
     , containers
     , data-default
     , deepseq
     , directory
+    , file-embed
     , filepath
     , fmt
     , lens
@@ -57,15 +51,18 @@ library
     , prettyprinter
     , prettyprinter-ansi-terminal
     , recursion-schemes
+    , reflex
+    , reflex-dom
     , text
     , text-short
+    , time
     , unordered-containers
   default-language: Haskell2010
 
-executable cat
+executable site
   main-is: Main.hs
   other-modules:
-      Paths_cat
+      Paths_cat_site
   hs-source-dirs:
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
@@ -73,10 +70,12 @@ executable cat
       base >=4.7 && <5
     , bytestring
     , cat
+    , cat-site
     , containers
     , data-default
     , deepseq
     , directory
+    , file-embed
     , filepath
     , fmt
     , lens
@@ -88,45 +87,10 @@ executable cat
     , prettyprinter
     , prettyprinter-ansi-terminal
     , recursion-schemes
+    , reflex
+    , reflex-dom
     , text
     , text-short
-    , unordered-containers
-  default-language: Haskell2010
-
-test-suite cat-test
-  type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  other-modules:
-      ParseSpec
-      X64Spec
-      Paths_cat
-  hs-source-dirs:
-      test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  build-tool-depends:
-      hspec-discover:hspec-discover
-  build-depends:
-      QuickCheck
-    , base >=4.7 && <5
-    , bytestring
-    , cat
-    , containers
-    , data-default
-    , deepseq
-    , directory
-    , filepath
-    , fmt
-    , hspec
-    , lens
-    , megaparsec
-    , mtl
-    , optparse-applicative
-    , parser-combinators
-    , polysemy
-    , prettyprinter
-    , prettyprinter-ansi-terminal
-    , recursion-schemes
-    , text
-    , text-short
+    , time
     , unordered-containers
   default-language: Haskell2010

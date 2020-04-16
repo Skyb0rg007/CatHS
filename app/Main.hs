@@ -4,14 +4,20 @@ module Main where
 
 import Data.Functor.Identity
 import Data.Text (Text)
+import qualified Data.Text as Text
 import qualified Data.Text.IO as Text.IO
 import Control.Monad.Fix
 import qualified Data.Map as Map
+import System.Environment (getArgs)
+import Text.Megaparsec
+import Data.Text.Prettyprint.Doc.Render.Terminal
 
 import Cat.X64 as Asm
 import Cat.Backend
 import Cat.Common
 import Cat.LIR
+import Cat.Syntax
+import Cat.Parse
 
 prog :: Text
 prog = compileProgram $
@@ -77,5 +83,34 @@ prog = compileProgram $
                 ]
             }
 
+prog' :: Text
+prog' = compileProgram $ LIRProgram
+    { _lirProgramMain = mainFn
+    , _lirProgramFuns = mempty
+    }
+    where
+        a = Symbol 0
+        b = Symbol 1
+        c = Symbol 2
+        d = Symbol 3
+        mainFn = LIRFunction
+            { _lirFunctionArgs = []
+            , _lirFunctionReturnSym = a
+            , _lirFunctionLocals = [b]
+            , _lirFunctionInstructions =
+                [ LIRAsmInstruction $ LIRAssignLit (LitString "hello") b
+                , LIRAsmInstruction $ LIRCall LIRLabelPrintlnString [b] a
+                ]
+            }
+
+-- Text.IO.putStrLn prog'
+
 main :: IO ()
-main = Text.IO.putStrLn prog
+main = do
+    t <- Text.pack . head <$> getArgs
+    case parse parseProgram "" t of
+      Left err -> putStrLn (errorBundlePretty err)
+      Right prog -> do
+          putDoc $ fmap annMap $ prettyProg prog
+          putStrLn ""
+

@@ -1,6 +1,6 @@
-name:                cat
+name:                cat-site
 version:             0.1.0.0
-github:              "Skyb0rg007/cat"
+github:              "skyb0rg007/cat"
 license:             BSD3
 author:              "Skye Soss"
 maintainer:          "skye.soss@tufts.edu"
@@ -8,7 +8,7 @@ copyright:           "2020 Skye Soss"
 
 extra-source-files:
 - README.md
-- runtime.c
+- normalize.css
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -20,34 +20,37 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/githubuser/cat#readme>
 
 dependencies:
+- cat
 - base >= 4.7 && < 5
 - bytestring
 - containers
+- data-default
 - deepseq
 - directory
+- file-embed
 - filepath
-- megaparsec
-# TODO
-# - optics
-- polysemy
 - fmt
+- lens
+- megaparsec
+- mtl
 - optparse-applicative
 - parser-combinators
+- polysemy
 - prettyprinter
 - prettyprinter-ansi-terminal
 - recursion-schemes
+- reflex
+- reflex-dom
 - text
 - text-short
+- time
 - unordered-containers
-- mtl
-- lens
-- data-default
 
 library:
   source-dirs: src
 
 executables:
-  cat:
+  site:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -55,19 +58,5 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - cat
+    - cat-site
 
-tests:
-  cat-test:
-    main:                Spec.hs
-    source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    build-tools:
-    - hspec-discover
-    dependencies:
-    - hspec
-    - QuickCheck
-    - cat

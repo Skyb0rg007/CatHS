@@ -1,10 +1,20 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE BlockArguments             #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveFoldable             #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveTraversable          #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
 
 module Cat.LIR
     ( module Cat.LIR
@@ -20,6 +30,8 @@ import           Data.Text                 (Text)
 import qualified Data.Text                 as Text
 import           Data.Text.Prettyprint.Doc
 import           Data.Word                 (Word64)
+import           Polysemy
+import           Polysemy.State
 
 import Cat.Common
 import Cat.X64 (Label, Condition)
@@ -82,5 +94,16 @@ lirFunctionSymbols = to f
     where
         f fun = fun^.lirFunctionLocals ++ fun^.lirFunctionArgs ++ [fun^.lirFunctionReturnSym]
 
+data LIRLabelGen (m :: * -> *) a where
+    NewLabel :: LIRLabelGen m LIRLabel
+
+makeSem ''LIRLabelGen
+
+runLIRLabelGen :: Sem (LIRLabelGen ': r) a -> Sem r a
+runLIRLabelGen = evalState @Int 0 . reinterpret \case
+    NewLabel -> do
+        n <- get
+        put (n + 1)
+        pure $ LIRLabel n
 
 

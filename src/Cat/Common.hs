@@ -1,23 +1,35 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DerivingStrategies #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE BlockArguments             #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeOperators              #-}
 
 module Cat.Common
     ( module Cat.Common
     ) where
 
-import Data.Text (Text)
-import Data.Word (Word64)
-import Control.Monad.State.Strict
-import Control.Lens
+import           Control.Lens
+import           Data.Text                  (Text)
+import           Data.Word                  (Word64)
+import           Polysemy
+import           Polysemy.State
 
 -- * Symbols
 
+-- | Used to represent variables in LIR
 newtype Symbol = Symbol { _symbolId :: Word64 }
-    deriving newtype (Eq, Ord)
-    deriving stock   (Show, Read)
+    deriving stock (Show, Read, Eq, Ord)
 
 -- * Comparisons
 
+-- | Types of infix operator in Cat
 data InfixOp
     = OpMult
     | OpDiv
@@ -27,24 +39,42 @@ data InfixOp
     | OpOr
     deriving (Show, Eq, Ord, Enum)
 
+data InfixSourceOp
+    = SOpMult
+    | SOpDiv
+    | SOpAdd
+    | SOpSub
+    | SOpAnd
+    | SOpOr
+    | SOpEq
+    | SOpNeq
+    | SOpGt
+    | SOpLt
+    | SOpGte
+    | SOpLte
+    deriving (Show, Eq, Ord, Enum)
+
 -- * Lenses
 
 makeLenses ''Symbol
 
 -- * Monads
 
-class MonadSymbolGen m where
-    newSymbol :: m Symbol
+data SymbolGen (m :: * -> *) a where
+    NewSymbol :: SymbolGen m Symbol
 
-newtype SymbolGenT m a = SymbolGenT { unSymbolGenT :: StateT Word64 m a }
-    deriving newtype ( Functor
-                     , Applicative
-                     , Monad
-                     )
+makeSem ''SymbolGen
 
-instance Monad m => MonadSymbolGen (SymbolGenT m) where
-    newSymbol = SymbolGenT (gets Symbol <* modify' succ)
+runSymbolGenInState :: Member (State Word64) r => Sem (SymbolGen ': r) a -> Sem r a
+runSymbolGenInState = interpret $ \NewSymbol -> do
+    s <- get
+    put (s + 1)
+    pure $ Symbol s
 
-runSymbolGenT :: Monad m => SymbolGenT m a -> m a
-runSymbolGenT (SymbolGenT m) = evalStateT m 0
+runSymbolGen :: forall r a . Sem (SymbolGen ': r) a -> Sem r a
+runSymbolGen = evalState @Word64 0 . reinterpret \case
+    NewSymbol -> do
+        s <- get
+        put (s + 1)
+        pure $ Symbol s
 

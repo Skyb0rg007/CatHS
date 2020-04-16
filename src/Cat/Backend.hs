@@ -1,7 +1,22 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RecursiveDo, FlexibleContexts #-}
+{-# LANGUAGE BlockArguments             #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveFoldable             #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveTraversable          #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE RecursiveDo                #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
 
 module Cat.Backend
     ( compileProgram
@@ -16,6 +31,10 @@ import           Data.Map              (Map)
 import qualified Data.Map              as Map
 import           Data.Text             (Text)
 import qualified Data.Text             as Text
+import           Fmt                   ((+||), (||+))
+import           Polysemy
+import           Polysemy.Error
+import           Polysemy.Fixpoint
 
 import           Cat.Common
 import           Cat.X64
@@ -23,16 +42,24 @@ import           Cat.X64
 type FunEnv = Map LIRLabel Label
 type SymEnv = Map Symbol (Operand 'RW)
 
+-- | Compile an LIRProgram down into GAS syntax
 compileProgram :: LIRProgram -> Text
-compileProgram prog = compileProg $ snd $ runCodeM $ do
+compileProgram prog =
+          runIdentity
+        . runFinal @Identity
+        . fmap (either ("ERROR: " <>) id)
+        . runError @Text
+        . evalX64
+        . fixpointToFinal @Identity
+        $ do
     rec
         funEnv <- traverse (compileFun funEnv) (prog^.lirProgramFuns)
     main' <- rawLabel "main"
     global main'
     compileFun funEnv (prog^.lirProgramMain)
 
--- Compiles a function, returning the function's label
-compileFun :: MonadCode m => FunEnv -> LIRFunction -> m Label
+-- Compiles an LIRFunction, returning the function's label
+compileFun :: Members '[X64, Error Text] r => FunEnv -> LIRFunction -> Sem r Label
 compileFun funEnv fun = function arity numLocals $ \params locals returnOp -> do
     let p = zip (fun^.lirFunctionArgs) params
         l = zip (fun^.lirFunctionLocals) locals
@@ -43,6 +70,7 @@ compileFun funEnv fun = function arity numLocals $ \params locals returnOp -> do
         arity = fun^.lirFunctionArgs.to length
         numLocals = fun^.lirFunctionLocals.to length
 
+-- LIRLabels need to be mangled to work as Cat.X64-style Labels
 convertLbl :: LIRLabel -> Label
 convertLbl = \case
     LIRLabel n                -> LabelRaw $ "lir_lbl_" <> Text.pack (show n)
@@ -53,6 +81,7 @@ convertLbl = \case
     LIRLabelPrintInt          -> LabelRaw "print_int"
     LIRLabelPrintString       -> LabelRaw "print_string"
 
+-- The predefined functions
 defaultFunEnv = Map.fromList
     [ (LIRLabelAllocate          , LabelRaw "allocate")
     , (LIRLabelAllocateAndMemset , LabelRaw "allocate_and_memset")
@@ -63,11 +92,11 @@ defaultFunEnv = Map.fromList
     ]
 
 compileInstr
-    :: MonadCode m 
+    :: Members '[X64, Error Text] r 
     => FunEnv
     -> SymEnv
     -> LIRAssembly
-    -> m ()
+    -> Sem r ()
 compileInstr funEnv symEnv (LIRAsmLabel lbl) = 
     case convertLbl lbl of
       LabelRaw x -> void $ rawLabel x
@@ -80,7 +109,12 @@ compileInstr funEnv' symEnv (LIRAsmInstruction instr) =
       LIRAssignLit (LitInt n) sym
         | Just op <- Map.lookup sym symEnv
         -> mov (IntOp n) op
-      -- *(loc + off) = val
+      LIRAssignLit (LitString s) sym
+        | Just op <- Map.lookup sym symEnv
+        -> do
+            lbl <- db s
+            mov (ImmOp $ LabelMem lbl) op
+      -- . *(loc + off) = val
       LIRStoreToMemoryAtOffset loc off val
         | Just locOp <- Map.lookup loc symEnv
         , Just offOp <- Map.lookup off symEnv
@@ -148,6 +182,6 @@ compileInstr funEnv' symEnv (LIRAsmInstruction instr) =
             -- Swaps!
             cmp rightOp leftOp
             j cond (convertLbl lbl)
-      lir -> error $ "Operand " ++ show lir ++ " not found in table"
-                ++ "\n\nTable: " ++ show (Map.keys symEnv)
+      -- This happens if a symbol is not in the symEnv
+      lir -> throw @Text $ "Operand "+|| lir ||+" not found in table\n\nTable: "+|| Map.keys symEnv ||+""
 
