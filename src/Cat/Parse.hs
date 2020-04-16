@@ -12,11 +12,12 @@ import           Control.Monad                  (void)
 import           Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
 import           Data.Char                      (isDigit)
 import           Data.Foldable                  (traverse_)
+import           Data.Function                  ((&))
 import           Data.HashSet                   (HashSet)
-import qualified Data.HashSet                   as HashSet
+import qualified Data.HashSet                   as HashSet (fromList, member)
 import           Data.Text                      (Text)
-import qualified Data.Text                      as Text
-import qualified Data.Text.Read                 as Text.Read
+import qualified Data.Text                      as Text (pack, unpack)
+import qualified Data.Text.Read                 as Text.Read (decimal)
 import           Data.Void                      (Void)
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
@@ -211,12 +212,9 @@ parseLValue :: Parser LValue
 parseLValue = do
     x <- identifier
     subs <- many $
-        (Left <$> between (symbol "[") (symbol "]") parseExp)
+        (flip LValueSubscript <$> between (symbol "[") (symbol "]") parseExp)
         <|> 
-        (Right <$> (symbol "." *> identifier))
-    let f :: LValue -> Either Exp Text -> LValue
-        f lv (Left s) = LValueSubscript lv s
-        f lv (Right s) = LValueFieldExp lv s
-    pure $ foldl f (LValueId x) subs
+        (flip LValueFieldExp <$> (symbol "." *> identifier))
+    pure $ foldl (&) (LValueId x) subs 
 
 

@@ -118,18 +118,18 @@ prettyProg = vsep . fmap prettyToplevelDec
             ExpSequence [e] -> prettyExp p e
             ExpSequence exps -> encloseSep (op "(") (op ")") (op ";") (prettyExp 0 <$> exps)
             ExpNegate e -> "-" <> prettyExp 7 e
-            ExpInfix e1 SOpMult e2 -> parenIf (p > 6) $ prettyExp 6 e1 <+> "*" <+> prettyExp 6 e2
-            ExpInfix e1 SOpDiv  e2 -> parenIf (p > 6) $ prettyExp 6 e1 <+> "/" <+> prettyExp 6 e2
-            ExpInfix e1 SOpAdd  e2 -> parenIf (p > 5) $ prettyExp 5 e1 <+> "+" <+> prettyExp 5 e2
-            ExpInfix e1 SOpSub  e2 -> parenIf (p > 5) $ prettyExp 5 e1 <+> "-" <+> prettyExp 5 e2
-            ExpInfix e1 SOpLt   e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> "<" <+> prettyExp 4 e2
-            ExpInfix e1 SOpGt   e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> ">" <+> prettyExp 4 e2
-            ExpInfix e1 SOpLte  e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> "<=" <+> prettyExp 4 e2
-            ExpInfix e1 SOpGte  e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> ">=" <+> prettyExp 4 e2
-            ExpInfix e1 SOpNeq  e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> "<>" <+> prettyExp 4 e2
-            ExpInfix e1 SOpEq   e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> "=" <+> prettyExp 4 e2
-            ExpInfix e1 SOpAnd  e2 -> parenIf (p > 3) $ prettyExp 3 e1 <+> "and" <+> prettyExp 3 e2
-            ExpInfix e1 SOpOr   e2 -> parenIf (p > 2) $ prettyExp 2 e1 <+> "or" <+> prettyExp 2 e2
+            ExpInfix e1 SOpMult e2 -> parenIf (p > 6) $ prettyExp 6 e1 <+> op "*" <+> prettyExp 6 e2
+            ExpInfix e1 SOpDiv  e2 -> parenIf (p > 6) $ prettyExp 6 e1 <+> op "/" <+> prettyExp 6 e2
+            ExpInfix e1 SOpAdd  e2 -> parenIf (p > 5) $ prettyExp 5 e1 <+> op "+" <+> prettyExp 5 e2
+            ExpInfix e1 SOpSub  e2 -> parenIf (p > 5) $ prettyExp 5 e1 <+> op "-" <+> prettyExp 5 e2
+            ExpInfix e1 SOpLt   e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> op "<" <+> prettyExp 4 e2
+            ExpInfix e1 SOpGt   e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> op ">" <+> prettyExp 4 e2
+            ExpInfix e1 SOpLte  e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> op "<=" <+> prettyExp 4 e2
+            ExpInfix e1 SOpGte  e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> op ">=" <+> prettyExp 4 e2
+            ExpInfix e1 SOpNeq  e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> op "<>" <+> prettyExp 4 e2
+            ExpInfix e1 SOpEq   e2 -> parenIf (p > 4) $ prettyExp 4 e1 <+> op "=" <+> prettyExp 4 e2
+            ExpInfix e1 SOpAnd  e2 -> parenIf (p > 3) $ prettyExp 3 e1 <+> op "and" <+> prettyExp 3 e2
+            ExpInfix e1 SOpOr   e2 -> parenIf (p > 2) $ prettyExp 2 e1 <+> op "or" <+> prettyExp 2 e2
             ExpArrayCreate t len init -> ty (pretty t) <> op "[" <> group (prettyExp 0 len) <> op "]" <+> kw "of" <+> group (prettyExp 0 init)
             ExpRecordCreate t flds -> ty (pretty t) <> prettyFields' flds
             ExpAssign lv e -> prettyLValue lv <+> op ":=" <+> group (prettyExp 0 e)
