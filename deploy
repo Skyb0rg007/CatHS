@@ -1,6 +1,7 @@
 #!/bin/sh
 
-BUILDDIR=$0/dist-newstyle/build/x86_64-linux/ghcjs-8.6.0.1/cat-site-0.1.0.0/x/site/build/site/site.jsexe
+DIR="$(dirname "$0")"
+BUILDDIR=$DIR/dist-newstyle/build/x86_64-linux/ghcjs-8.6.0.1/cat-site-0.1.0.0/x/site/build/site/site.jsexe
 
 git checkout gh-pages || exit 1
 trap "git checkout -" EXIT
