@@ -121,10 +121,10 @@ parseExpAtomic =
     <|> (ExpStringLit <$> stringLit)
     <|> between (symbol "(") (symbol ")") (ExpSequence <$> parseExp `sepBy` symbol ";")
     <|> try parseArrCreate -- Here on out, choices can be confused, use 'try'
+    <|> try parseRecordCreate
     <|> try parseAssign
     <|> try parseCall
-    <|> try (ExpLValue <$> parseLValue)
-    <|> parseRecordCreate
+    <|> (ExpLValue <$> parseLValue)
     where
         parseIf = label "if" $ do
             symbol "if"

@@ -107,7 +107,7 @@ parsedOutput changeTxt = void $ dyn =<< fmap render <$> foldDyn f ([], Nothing) 
               Right prog -> (prog, Nothing)
         render :: (Program, Maybe Text) -> m ()
         render (prog, mErr) = do
-            renderHtml $ layoutPretty defaultLayoutOptions $ mapAnn <$> prettyProg prog
+            renderHtml $ layoutSmart defaultLayoutOptions { layoutPageWidth = AvailablePerLine 50 0.4 } $ mapAnn <$> prettyProg prog
             case mErr of
               Nothing -> pure ()
               Just err -> el "hr" (pure ()) >> elAttr "pre" ("style"=:"color: red") (text err)
