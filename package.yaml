@@ -24,6 +24,9 @@ dependencies:
 - bytestring
 - containers
 - deepseq
+- singlethongs
+- recursion-schemes-ix
+- constraints
 - directory
 - filepath
 - megaparsec

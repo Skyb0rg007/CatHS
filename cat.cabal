@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6fa4a64d95fca55c736a0a24a471145506d4078bf45c71016d610d31d443daad
+-- hash: 4afe35d736e8c8591a75ba845d0e9e4f436bb36aba1ac971f6d3ec1d163aefb3
 
 name:           cat
 version:        0.1.0.0
@@ -42,6 +42,7 @@ library
   build-depends:
       base >=4.7 && <5
     , bytestring
+    , constraints
     , containers
     , data-default
     , deepseq
@@ -57,6 +58,8 @@ library
     , prettyprinter
     , prettyprinter-ansi-terminal
     , recursion-schemes
+    , recursion-schemes-ix
+    , singlethongs
     , text
     , text-short
     , unordered-containers
@@ -73,6 +76,7 @@ executable cat
       base >=4.7 && <5
     , bytestring
     , cat
+    , constraints
     , containers
     , data-default
     , deepseq
@@ -88,6 +92,8 @@ executable cat
     , prettyprinter
     , prettyprinter-ansi-terminal
     , recursion-schemes
+    , recursion-schemes-ix
+    , singlethongs
     , text
     , text-short
     , unordered-containers
@@ -110,6 +116,7 @@ test-suite cat-test
     , base >=4.7 && <5
     , bytestring
     , cat
+    , constraints
     , containers
     , data-default
     , deepseq
@@ -126,6 +133,8 @@ test-suite cat-test
     , prettyprinter
     , prettyprinter-ansi-terminal
     , recursion-schemes
+    , recursion-schemes-ix
+    , singlethongs
     , text
     , text-short
     , unordered-containers

@@ -8,7 +8,7 @@ panic () {
     exit 1
 }
 
-cabal new-build site || panic "Error compiling site"
+cabal new-build site --ghcjs --disable-documentation || panic "Error compiling site"
 
 git stash push || panic "Error stashing current changes"
 git checkout gh-pages || { git stash pop; panic "Error checking out gh-pages"; }

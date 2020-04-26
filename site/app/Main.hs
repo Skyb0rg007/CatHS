@@ -101,7 +101,7 @@ app = do
 parsedOutput :: forall t m . ( DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m )
              => Event t Text
              -> m ()
-parsedOutput changeTxt = void $ dyn =<< fmap render <$> foldDyn f ([], Nothing) changeTxt
+parsedOutput changeTxt = void $ dyn =<< fmap render <$> foldDyn f (Program [], Nothing) changeTxt
     where
         f :: Text -> (Program, Maybe Text) -> (Program, Maybe Text)
         f newTxt (oldProg, oldErr) =

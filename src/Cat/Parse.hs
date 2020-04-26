@@ -74,7 +74,11 @@ stringLit = label "string" $ lexeme $ Text.pack <$> between (char '"') (char '"'
 
 -- <prog> ::= <top_level_dec>*
 parseProgram :: Parser Program
-parseProgram = some parseTopLevelDec <* sc <* eof
+parseProgram = fmap Program $ some parseTopLevelDec <* sc <* eof
+
+-- <ty> ::= <identifier>
+parseTy :: Parser Ty
+parseTy = Ty <$> identifier
 
 -- <top_level_dec> ::= type <id> = array of <id>
 --                   | type <id> = { <field_dec>* }
@@ -89,23 +93,23 @@ parseTopLevelDec = typedef <|> funDef
             arrTypedef t <|> recTypedef t
         arrTypedef t = do
             traverse_ symbol ["array", "of"]
-            ty <- identifier
+            ty <- parseTy
             pure $ TyDecArray t ty
         recTypedef t =
             let parseFld = do
                     fld <- identifier
                     symbol ":"
-                    ty <- identifier
+                    ty <- parseTy
                     pure (fld, ty)
              in TyDecRecord t <$> between (symbol "{") (symbol "}") (parseFld `sepBy` symbol ",")
         funDef = label "function definition" $ do
             symbol "function"
             name <- identifier
             args <- between (symbol "(") (symbol ")") $ 
-                let formalArg = (,) <$> identifier <* symbol ":" <*> identifier
+                let formalArg = (,) <$> identifier <* symbol ":" <*> parseTy
                  in formalArg `sepBy` symbol ","
             symbol "->"
-            retTy <- identifier
+            retTy <- parseTy
             body <- between (symbol "{") (symbol "}") $ some parseExp
             pure $ case body of
               [e] -> FunDec name retTy args e
@@ -160,7 +164,7 @@ parseExpAtomic =
             symbol "end"
             pure $ ExpLet decs e
         parseArrCreate = label "array" $ do
-            t <- identifier
+            t <- parseTy
             e <- between (symbol "[") (symbol "]") parseExp
             symbol "of"
             ExpArrayCreate t e <$> parseExp
@@ -171,7 +175,7 @@ parseExpAtomic =
             pure $ ExpCall f args
         parseBreak = label "break" $ ExpBreak <$ symbol "break"
         parseRecordCreate = label "record" $ do
-            t <- identifier
+            t <- parseTy
             let parseFld = (,) <$> identifier <* symbol "=" <*> parseExp
             flds <- between (symbol "{") (symbol "}") $ parseFld `sepBy` symbol ","
             pure $ ExpRecordCreate t flds
@@ -205,7 +209,7 @@ parseDec = do
     symbol "var"
     x <- identifier
     symbol ":"
-    t <- identifier
+    t <- parseTy
     symbol ":="
     VarDec x t <$> parseExp
 

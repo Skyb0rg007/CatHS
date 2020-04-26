@@ -12,6 +12,20 @@ packages:
   original:
     hackage: fmt-0.6.1.2@sha256:405a1bfc0ba0fd99f6eb1ee71f100045223f79204f961593012f28fd99cd1237,5319
 - completed:
+    hackage: singlethongs-0.1@sha256:bbedc2d6abbc6f5b10bf6b2880f926623f81a161c47358b6ee7761a56857dc63,1016
+    pantry-tree:
+      size: 454
+      sha256: a3f094d77e5501ca7841e3f79b2cbae433dbf03f5100c559ab461f140ce220a6
+  original:
+    hackage: singlethongs-0.1@sha256:bbedc2d6abbc6f5b10bf6b2880f926623f81a161c47358b6ee7761a56857dc63,1016
+- completed:
+    hackage: recursion-schemes-ix-0.1.0.0@sha256:9e99f27a38af741a0620eb44590e24fe90377f2bc70c686bbd3e8bdbd774dc55,1903
+    pantry-tree:
+      size: 1081
+      sha256: aa820dfbf7fab40535d13ba6428e02cf38ac965ce09d7bf77301ce896ac4845d
+  original:
+    hackage: recursion-schemes-ix-0.1.0.0@sha256:9e99f27a38af741a0620eb44590e24fe90377f2bc70c686bbd3e8bdbd774dc55,1903
+- completed:
     hackage: reflex-0.7.0.0@sha256:b7c00263a97925045d9c05c47979b46850935f7ba01b775d728cf357b373e611,11192
     pantry-tree:
       size: 4463
@@ -174,7 +188,7 @@ packages:
     hackage: jsaddle-dom-0.9.4.0@sha256:e9557e5a6df02bf089acab3e053ee3d4b523acebfe9ede9b5091d12cee760780,75700
 snapshots:
 - completed:
-    size: 492015
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/15/8.yaml
-    sha256: 926bc3d70249dd0ba05277ff00943c0addb35b627cb641752669e7cf771310d0
-  original: lts-15.8
+    size: 492027
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/15/9.yaml
+    sha256: 11394dc975e96c2fea90f7f2b3229630d46351a092ebcec78f0a56403930b429
+  original: lts-15.9

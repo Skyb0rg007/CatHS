@@ -1,4 +1,4 @@
-resolver: lts-15.8
+resolver: lts-15.9
 packages:
 - .
 - ./site
@@ -7,6 +7,8 @@ allow-newer: true
 extra-deps:
 # For compiler
 - fmt-0.6.1.2@sha256:405a1bfc0ba0fd99f6eb1ee71f100045223f79204f961593012f28fd99cd1237,5319
+- singlethongs-0.1@sha256:bbedc2d6abbc6f5b10bf6b2880f926623f81a161c47358b6ee7761a56857dc63,1016
+- recursion-schemes-ix-0.1.0.0@sha256:9e99f27a38af741a0620eb44590e24fe90377f2bc70c686bbd3e8bdbd774dc55,1903
 # For site
 - reflex-0.7.0.0@sha256:b7c00263a97925045d9c05c47979b46850935f7ba01b775d728cf357b373e611,11192
 - reflex-dom-0.5.3@sha256:490ac2a707739b2e8d09c931d14b35dd1add9c73b62732671794ca890a8a7a87,4674
