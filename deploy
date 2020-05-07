@@ -1,7 +1,7 @@
 #!/bin/sh
 
 DIR="$(dirname "$0")"
-BUILDDIR=$DIR/dist-newstyle/build/x86_64-linux/ghcjs-8.6.0.1/cat-site-0.1.0.0/x/site/build/site/site.jsexe
+BUILDDIR="${DIR}"/dist-newstyle/build/x86_64-linux/ghcjs-8.6.0.1/cat-site-0.1.0.0/x/site/build/site/site.jsexe
 
 panic () {
     echo >&2 "$@"
@@ -15,8 +15,8 @@ git checkout gh-pages || { git stash pop; panic "Error checking out gh-pages"; }
 trap "git checkout -; git stash pop" EXIT
 
 rm -f all.min.js
-cp "$BUILDDIR/all.js" . || exit 1
-cp "$BUILDDIR/all.js.externs" . || exit 1
+cp "${BUILDDIR}"/all.js . || exit 1
+cp "${BUILDDIR}"/all.js.externs . || exit 1
 ccjs all.js --compilation_level=ADVANCED --jscomp_off='*' --externs=all.js.externs > all.min.js
 rm -f all.js all.js.externs
 
