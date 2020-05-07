@@ -111,10 +111,8 @@ parseTopLevelDec = typedef <|> funDef
                  in formalArg `sepBy` symbol ","
             symbol "->"
             retTy <- parseTy
-            body <- between (symbol "{") (symbol "}") $ some parseExp
-            pure $ case body of
-              [e] -> FunDec name retTy args e
-              _ -> FunDec name retTy args (ExpSequence body)
+            body <- between (symbol "{") (symbol "}") parseExp
+            pure $ FunDec name retTy args body
 
 -- Parse an atomic expression
 parseExpAtomic :: Parser Exp
