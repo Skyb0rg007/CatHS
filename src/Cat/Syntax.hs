@@ -129,7 +129,7 @@ prettyProg = ($ 0) . getConst . cata alg
               case x of
                 ExpBreakF -> kw "break"
                 ExpIntLitF n -> int (pretty n)
-                ExpStringLitF s -> str (pretty s)
+                ExpStringLitF s -> str (dquotes (pretty s))
                 ExpLValueF (Const l) -> l d
                 ExpSequenceF [Const e] -> e d
                 ExpSequenceF (map getConst -> es) -> encloseSep (op "(") (op ")") (op ";") (map ($ 0) es)
