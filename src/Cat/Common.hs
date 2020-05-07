@@ -37,7 +37,7 @@ data InfixOp
     | OpSub
     | OpAnd
     | OpOr
-    deriving (Show, Eq, Ord, Enum)
+    deriving (Show, Read, Eq, Ord, Enum)
 
 data InfixSourceOp
     = SOpMult
@@ -52,7 +52,7 @@ data InfixSourceOp
     | SOpLt
     | SOpGte
     | SOpLte
-    deriving (Show, Eq, Ord, Enum)
+    deriving (Show, Read, Eq, Ord, Enum)
 
 -- * Lenses
 

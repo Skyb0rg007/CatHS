@@ -1,19 +1,13 @@
 {-# LANGUAGE BlockArguments             #-}
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveFoldable             #-}
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE RecursiveDo                #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
@@ -22,8 +16,6 @@ module Cat.Backend
     ( compileProgram
     ) where
 
-import           Cat.LIR
-import           Cat.X64               as X64
 import           Control.Lens
 import           Control.Monad.Reader
 import           Data.Functor.Foldable
@@ -36,8 +28,9 @@ import           Polysemy
 import           Polysemy.Error
 import           Polysemy.Fixpoint
 
+import           Cat.LIR
+import           Cat.X64               as X64
 import           Cat.Common
-import           Cat.X64
 
 type FunEnv = Map LIRLabel Label
 type SymEnv = Map Symbol (Operand 'RW)
@@ -64,7 +57,7 @@ compileFun funEnv fun = function arity numLocals $ \params locals returnOp -> do
     let p = zip (fun^.lirFunctionArgs) params
         l = zip (fun^.lirFunctionLocals) locals
         symEnv = Map.fromList (p ++ l ++ [(fun^.lirFunctionReturnSym, returnOp)])
-    forM_ (fun^.lirFunctionInstructions) $ \instr -> do
+    forM_ (fun^.lirFunctionInstructions) $ \instr ->
         compileInstr funEnv symEnv instr
     where
         arity = fun^.lirFunctionArgs.to length
@@ -149,7 +142,7 @@ compileInstr funEnv' symEnv (LIRAsmInstruction instr) =
             neg assOp
       -- assign_to = f(args)
       LIRCall lirlbl args assign_to
-        | Just argOps <- traverse (flip Map.lookup symEnv) args
+        | Just argOps <- traverse (`Map.lookup` symEnv) args
         , length args == length argOps
         , Just assOp <- Map.lookup assign_to symEnv
         -> let ~(Just lbl) = Map.lookup lirlbl funEnv

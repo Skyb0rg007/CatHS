@@ -9,8 +9,9 @@ module Cat.Parse
     ) where
 
 import           Control.Monad                  (void)
+import qualified Control.Monad.Fail             as Fail
 import           Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
-import           Data.Char                      (isDigit)
+import           Data.Char
 import           Data.Foldable                  (traverse_)
 import           Data.Function                  ((&))
 import           Data.HashSet                   (HashSet)
@@ -45,10 +46,10 @@ symbol' = void . L.symbol' sc
 
 identifier :: Parser Text
 identifier = label "identifier" $ lexeme $ do
-    let f c = c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+    let f c = isAsciiLower c || isAsciiUpper c
     candidate <- takeWhile1P (Just "letter") f
     if candidate `HashSet.member` reserved
-        then fail $ "\"" ++ Text.unpack candidate ++ "\" is a reserved word"
+        then Fail.fail $ "\"" ++ Text.unpack candidate ++ "\" is a reserved word"
         else pure candidate
 
 reserved :: HashSet Text
@@ -65,7 +66,7 @@ intLit = label "integer" $ lexeme $ mkNum =<< takeWhile1P (Just "digit") isDigit
         case Text.Read.decimal txt of
           Right (n, "") -> pure n
           Right _ -> error "This shouldn't happen"
-          Left err -> fail err
+          Left err -> Fail.fail err
 
 stringLit :: Parser Text
 stringLit = label "string" $ lexeme $ Text.pack <$> between (char '"') (char '"') (many $ satisfy (/= '"'))

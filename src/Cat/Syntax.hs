@@ -1,25 +1,16 @@
-{-# LANGUAGE DataKinds                 #-}
-{-# LANGUAGE DefaultSignatures         #-}
-{-# LANGUAGE EmptyCase                 #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE InstanceSigs              #-}
-{-# LANGUAGE KindSignatures            #-}
-{-# LANGUAGE LambdaCase                #-}
-{-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE PatternSynonyms           #-}
-{-# LANGUAGE PolyKinds                 #-}
-{-# LANGUAGE RankNTypes                #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
-{-# LANGUAGE StandaloneDeriving        #-}
-{-# LANGUAGE TemplateHaskell           #-}
-{-# LANGUAGE TupleSections             #-}
-{-# LANGUAGE TypeApplications          #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TypeOperators             #-}
-{-# LANGUAGE ViewPatterns              #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE InstanceSigs        #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 {-# OPTIONS_GHC -Wall -Wno-name-shadowing #-}
 
@@ -28,17 +19,22 @@ module Cat.Syntax
     , Int64
     ) where
 
-import           Data.Bifunctor                            (second)
-import           Data.Functor                              ((<&>))
-import           Data.Functor.Classes                      (liftCompare, liftEq,
-                                                            liftShowsPrec)
+import           Data.Bifunctor            (second)
+import           Data.Functor              ((<&>))
+import           Data.Functor.Classes      (Eq1 (..), Ord1 (..), Read1 (..),
+                                            Show1 (..))
 import           Data.IFunctor.Foldable
-import           Data.Int                                  (Int64)
-import           Data.Text                                 (Text)
+import           Data.Int                  (Int64)
+import           Data.Text                 (Text)
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Terminal
-import           Singlethongs
-import qualified Text.Show                                 as Show
+import           Data.Type.Equality        ((:~:) (Refl), TestEquality (..))
+import qualified GHC.Read                  (list)
+import           Singlethongs              (Sing, SingKind (..),
+                                            SomeSing (SomeSing))
+import           Text.Read                 (Lexeme (Ident), ReadPrec, readPrec)
+import qualified Text.Read                 as Read
+import qualified Text.Show                 as Show
 
 import           Cat.Common
 
@@ -81,9 +77,6 @@ data LValue
 makeBaseFunctor "AST" [''Program, ''TopLevelDec, ''Exp, ''Dec, ''LValue]
 
 -}
-
-data ASTIdx = ExpIdx | DecIdx | LValueIdx | TopLevelDecIdx | ProgramIdx | TyIdx
-singlethongs ''ASTIdx
 
 -- * Pretty
 
@@ -214,6 +207,50 @@ prettyProg = ($ 0) . getConst . cata alg
                 TyF t -> ty (pretty t)
 
 -- * recursion-schemes-ix boilerplate
+-- WARNING: do not look at this if you want to remain sane
+
+data ASTIdx = ExpIdx | DecIdx | LValueIdx | TopLevelDecIdx | ProgramIdx | TyIdx
+data instance Sing (x :: ASTIdx) where
+    SExpIdx         :: Sing 'ExpIdx
+    SDecIdx         :: Sing 'DecIdx
+    SLValueIdx      :: Sing 'LValueIdx
+    STopLevelDecIdx :: Sing 'TopLevelDecIdx
+    SProgramIdx     :: Sing 'ProgramIdx
+    STyIdx          :: Sing 'TyIdx
+instance SingKind ASTIdx where
+    type Demote ASTIdx = ASTIdx
+    fromSing SExpIdx         = ExpIdx
+    fromSing SDecIdx         = DecIdx
+    fromSing SLValueIdx      = LValueIdx
+    fromSing STopLevelDecIdx = TopLevelDecIdx
+    fromSing SProgramIdx     = ProgramIdx
+    fromSing STyIdx          = TyIdx
+    toSing ExpIdx         = SomeSing SExpIdx
+    toSing DecIdx         = SomeSing SDecIdx
+    toSing LValueIdx      = SomeSing SLValueIdx
+    toSing TopLevelDecIdx = SomeSing STopLevelDecIdx
+    toSing ProgramIdx     = SomeSing SProgramIdx
+    toSing TyIdx          = SomeSing STyIdx
+instance TestEquality (Sing :: ASTIdx -> *) where
+    testEquality SExpIdx SExpIdx                 = Just Refl
+    testEquality SDecIdx SDecIdx                 = Just Refl
+    testEquality SLValueIdx SLValueIdx           = Just Refl
+    testEquality STopLevelDecIdx STopLevelDecIdx = Just Refl
+    testEquality SProgramIdx SProgramIdx         = Just Refl
+    testEquality STyIdx STyIdx                   = Just Refl
+    testEquality _ _                             = Nothing
+instance SingI 'ExpIdx where
+    sing = SExpIdx
+instance SingI 'DecIdx where
+    sing = SDecIdx
+instance SingI 'LValueIdx where
+    sing = SLValueIdx
+instance SingI 'TopLevelDecIdx where
+    sing = STopLevelDecIdx
+instance SingI 'ProgramIdx where
+    sing = SProgramIdx
+instance SingI 'TyIdx where
+    sing = STyIdx
 
 data AST :: (ASTIdx -> *) -> ASTIdx -> * where
     -- Program
@@ -270,6 +307,7 @@ pattern TyDecRecord a b = IFix (TyDecRecordF a b)
 pattern FunDec :: Text -> Ty -> [(Text, Ty)] -> Exp -> TopLevelDec
 pattern FunDec a b c d = IFix (FunDecF a b c d)
 {-# COMPLETE TyDecArray, TyDecRecord, FunDec #-}
+
 
 pattern ExpBreak :: Exp
 pattern ExpBreak = IFix ExpBreakF
@@ -483,6 +521,108 @@ instance {-# OVERLAPPING #-} Show LValue where
     showsPrec d (LValueFieldExp lv x) = showParen (d > 10) $
         showString "LValueFieldExp " . showsPrec 11 lv
       . showString " " . showsPrec 11 x
+
+instance IRead AST where
+    ireadPrec :: forall ix a. SingI ix
+              => (forall ix. SingI ix => ReadPrec (a ix))
+              -> ReadPrec (AST a ix)
+    ireadPrec rp = Read.parens $
+      case sing :: Sing ix of
+        SProgramIdx ->
+          Read.prec 10 $ do
+              Ident "ProgramF" <- Read.lexP
+              x <- Read.step $ liftReadPrec rp (GHC.Read.list rp)
+              pure $ ProgramF x
+        STyIdx ->
+          Read.prec 10 $ do
+              Ident "TyF" <- Read.lexP
+              x <- Read.step readPrec
+              pure $ TyF x
+        SDecIdx ->
+          Read.prec 10 $ do
+              Ident "VarDecF" <- Read.lexP
+              a <- Read.step readPrec
+              b <- Read.step rp
+              c <- Read.step rp
+              pure $ VarDecF a b c
+        SLValueIdx ->
+          Read.choice
+          [ Read.prec 10 $ do
+              Ident "LValueIdF" <- Read.lexP
+              a <- Read.step readPrec
+              pure $ LValueIdF a
+          , Read.prec 10 $ do
+              Ident "LValueSubscriptF" <- Read.lexP
+              a <- Read.step rp
+              b <- Read.step rp
+              pure $ LValueSubscriptF a b
+          , Read.prec 10 $ do
+              Ident "LValueFieldExpF" <- Read.lexP
+              a <- Read.step rp
+              b <- Read.step readPrec
+              pure $ LValueFieldExpF a b
+          ]
+        STopLevelDecIdx ->
+          Read.choice
+          [ Read.prec 10 $ do
+              Ident "TyDecArrayF" <- Read.lexP
+              a <- Read.step readPrec
+              b <- Read.step rp
+              pure $ TyDecArrayF a b
+          , Read.prec 10 $ do
+              Ident "TyDecRecordF" <- Read.lexP
+              a <- Read.step readPrec
+              let rp' = liftReadPrec rp (GHC.Read.list rp)
+              b <- Read.step $ liftReadPrec rp' (GHC.Read.list rp')
+              pure $ TyDecRecordF a b
+          , Read.prec 10 $ do
+              Ident "FunDecF" <- Read.lexP
+              a <- readPrec
+              b <- rp
+              let rp' = liftReadPrec rp (GHC.Read.list rp)
+              c <- Read.step $ liftReadPrec rp' (GHC.Read.list rp')
+              d <- rp
+              pure $ FunDecF a b c d
+          ]
+        SExpIdx ->
+          Read.choice
+          [ Read.prec 10 $ do
+              Ident "ExpBreakF" <- Read.lexP
+              pure ExpBreakF
+          , Read.prec 10 $ do
+              Ident "ExpIntLitF" <- Read.lexP
+              n <- Read.step readPrec
+              pure $ ExpIntLitF n
+          , Read.prec 10 $ do
+              Ident "ExpStringLitF" <- Read.lexP
+              s <- Read.step readPrec
+              pure $ ExpStringLitF s
+          , Read.prec 10 $ do
+              Ident "ExpLValueF" <- Read.lexP
+              s <- Read.step rp
+              pure $ ExpLValueF s
+          , Read.prec 10 $ do
+              Ident "ExpSequenceF" <- Read.lexP
+              es <- Read.step $ liftReadPrec rp (GHC.Read.list rp)
+              pure $ ExpSequenceF es
+          , Read.prec 10 $ do
+              Ident "ExpNegateF" <- Read.lexP
+              e <- Read.step rp
+              pure $ ExpNegateF e
+          , Read.prec 10 $ do
+              Ident "ExpInfixF" <- Read.lexP
+              e1 <- Read.step rp
+              op <- Read.step readPrec
+              e2 <- Read.step rp
+              pure $ ExpInfixF e1 op e2
+          , Read.prec 10 $ do
+              Ident "ExpArrayCreateF" <- Read.lexP
+              t <- Read.step rp
+              l <- Read.step rp
+              i <- Read.step rp
+              pure $ ExpArrayCreateF t l i
+          -- TODO
+          ]
 
 instance IEq AST where
     ieq :: forall ix a. SingI ix
